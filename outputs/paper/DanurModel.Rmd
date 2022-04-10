@@ -1,0 +1,43 @@
+---
+title: "Untitled"
+author: "Danur"
+date: "01/04/2022"
+output: html_document
+---
+
+
+
+```{r}
+UCLAdata <- read_csv("UCLA.csv")
+UCLAdata <- UCLAdata %>% select(-state)
+ACSdata <- read_csv("ACS.csv")
+```
+
+
+```{r}
+model <- glm(vote_trump ~  age + as.factor(race) + as.factor(education_category) + sex + stateicp, data = UCLAdata, family = "binomial")
+
+summary(model)
+```
+
+```{r}
+
+
+# Here I will perform the post-stratification calculation
+ACSdata$logodds_estimate <-
+  model %>%
+  predict(newdata = ACSdata)
+
+ACSdata$estimate <-
+  exp(ACSdata$logodds_estimate)/(1+exp(ACSdata$logodds_estimate))
+
+n <- count(ACSdata)
+ACSdata %>%
+  mutate(alp_predict_prop = estimate*n) %>%
+  summarise(alp_predict = sum(alp_predict_prop)/sum(n))
+prediction <- sum(ACSdata$estimate)
+final <- prediction/count(ACSdata)
+final
+```
+
+
