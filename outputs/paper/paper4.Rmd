@@ -1,0 +1,257 @@
+---
+title: "My title"
+subtitle: "My subtitle if needed"
+author: "Justin Teng, Mohammad Sardar Sheikh, Danur Mahendra"
+thanks: "Code and data are available at: LINK."
+date: "`r format(Sys.time(), '%d %B %Y')`"
+abstract: "First sentence. Second sentence. Third sentence. Fourth sentence."
+output:
+  bookdown::pdf_document2
+toc: FALSE
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r reading in data, include=FALSE}
+UCLAdata <- read_csv("UCLA.csv")
+UCLAdata <- UCLAdata %>% select(-state)
+ACSdata <- read_csv("ACS.csv")
+```
+
+# Introduction
+
+This paper will attempt to predict the popular vote result of the 2020 United States presidential election using multilevel regression and poststratification in R. As a global powerhouse, the election does not only affect American citizens; but rather, includes those nations who depend on the United States for aid, security, or trade. This presidential election is between the incumbent Republican president Donald Trump and Democratic candidate Joe Biden (cite). Trump’s presidency began with his inauguration following the 2016 presidential elections against Democratic candidate Hillary Clinton. Nevertheless, Trump’s victory shocked major news outlets who considered him a significant underdog against Clinton (cite). Trump will now attempt to win a second term of presidency against Biden, who many analysts again see Trump as the underdog following his controversial time in office (). His tenure was met with criticism following his controversial stance or remarks on racial inequality, diplomatic relations, and inefficient spending (cite). Trump’s turbulent presidency can be attributed to his lack of political experience and thus, many believe that a second term will not see much improvement. Ultimately, poll analysis and forecast outlets will once again favour the Democrat over the Republican in this presidential election. This paper will attempt to use R to forecast our own prediction and analyse the main driving factors behind each vote.
+
+
+# Data
+
+```{r data1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Demographics of Sample and Population"}
+
+# We are setting up proportions and plots for UCLA data (polling data) and ACS data(post_strat data)
+# We will be grouping up variables into their own data frames, and obtain the percentage for each variable.
+
+# Setting up proportions for UCLAdata (polling data)
+gender <- UCLAdata %>% 
+  group_by(sex) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "gender") %>% 
+  rename(value = sex)
+
+races <- UCLAdata %>% 
+  group_by(race) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "race") %>% 
+  rename(value = race)
+
+education <- UCLAdata %>% 
+  group_by(education_category) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "education") %>% 
+  rename(value = education_category)
+
+age <- UCLAdata %>% 
+  group_by(age) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "age") %>% 
+  rename(value = age)
+
+statesicp <- UCLAdata %>% 
+  group_by(stateicp) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "state") %>% 
+   rename(value = stateicp)
+
+hispanic <- UCLAdata %>% 
+  group_by(hispan) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "poll",
+         group = "hispanic") %>% 
+   rename(value = hispan)
+
+# setting up proportions for ACS data (post-strat data)
+
+gender_post <- ACSdata %>% 
+  group_by(sex) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "gender") %>% 
+  rename(value = sex)
+
+races_post <- ACSdata %>% 
+  group_by(race) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "race") %>% 
+  rename(value = race)
+
+education_post <- ACSdata %>% 
+  group_by(education_category) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "education") %>% 
+  rename(value = education_category)
+
+age_post <- ACSdata %>% 
+  group_by(age) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "age") %>% 
+  rename(value = age)
+
+statesicp_post <- ACSdata %>% 
+  group_by(stateicp) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "state") %>%
+  rename(value = stateicp)
+
+hispanic_post <- ACSdata %>% 
+  group_by(hispan) %>% 
+  summarise(n = n()) %>% 
+  mutate(pct = n/sum(n), type = "post-strat",
+         group = "hispanic") %>% 
+  rename(value = hispan)
+
+# combine all of our grouped data into one data set
+
+var_combined <- rbind(age, age_post, hispanic, hispanic_post,
+              races, races_post,
+              gender, gender_post
+              )
+```
+
+## Voter's Demographics 
+
+```{r voters agepoll, echo=FALSE, message=FALSE, warning=FALSE, fig.cap = "Voter's Demographic: Age (poll)"}
+
+# Making histograms for age percentage
+
+age %>% ggplot(aes(x = value, y = pct)) +
+ geom_histogram(stat = 'identity', position = "dodge") +
+ labs(x = "Age", 
+      y = "Proportion")
+```
+
+```{r votersagepost, echo=FALSE, message=FALSE, warning=FALSE, fig.cap = "Voter's Demographic: Age (post)"}
+age_post%>% ggplot(aes(x = value, y = pct)) +
+ geom_histogram(stat = 'identity', position = "dodge") +
+ labs(x = "Age",
+      y = "Proportion")
+```
+
+```{r voters gender, echo=FALSE, message=FALSE, warning=FALSE, fig.cap = "Voter's Demographic: Gender"}
+# Making bar plot for gender percentage 
+
+gender_both <- rbind(gender, gender_post)
+gender_both <- gender_both %>% 
+  mutate(value = ifelse(value == 0, "Female", "Male"))
+ggplot(gender_both, aes(x = value, y = pct, fill = type)) + geom_bar(stat="identity", position="dodge")
+  
+# Making bar plot for education percentage
+
+education_both <- rbind(education, education_post)
+education_both <- education_both %>% 
+  mutate(value = case_when(
+  value == 1 ~ "Below High School Diploma",
+  value == 2 ~ "High School Diploma",
+  value == 3 ~ "Post-Secondary Diploma"))
+ggplot(education_both, aes(x = value, y = pct, fill = type)) + geom_bar(stat="identity", position="dodge") 
+
+# Making bar plot for Hispanic percentage
+
+hispanic_both <- rbind(hispanic, hispanic_post)
+hispanic_both <- hispanic_both %>% 
+  mutate(value = ifelse(value == 0, "Not Hispanic", "Hispanic"))
+ggplot(hispanic_both, aes(x = value, y = pct, fill = type)) + geom_bar(stat="identity", position="dodge")
+
+# Making bar plot for Races
+races_both <- rbind(races, races_post)
+races_both <- races_both %>%
+  mutate(value = case_when(
+  value == 1 ~ "White",
+  value == 2 ~ "Black",
+  value == 3 ~ "American Indian or Alaska Native",
+  value == 4 ~ "Asians and Pacific Islanders",
+  value == 5 ~ "Other"))
+ggplot(races_both, aes(x = value, y = pct, fill = type)) + geom_bar(stat="identity", position="dodge")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), legend.position = "none")
+
+# Making Histogram for Age Percentage
+ages_both <- rbind(age, age_post)
+ages_both <- ages_both %>%
+  mutate(value = case_when(
+    value <= 29 ~ "18~29",
+    value <= 39 ~ "30~39",
+    value <= 49 ~ "40~49",
+    value <= 65 ~ "50~65",
+    value > 65 ~ "65+"
+  ))
+ggplot(ages_both, aes(x = value, y = pct, fill = type)) + geom_bar(stat="identity", position="dodge")
+```
+
+## Voters' Demographic- States
+
+```{r, fig.width= 7, fig.height= 5, echo=FALSE}
+# Making histograms for state percentage
+
+UCLAstate <- statesicp %>% ggplot(aes(as.factor(value), pct, group=as.factor(type), linetype = as.factor(type))) + 
+  geom_line() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), legend.position = "none") +
+  labs(x = "",y = "Proportion",
+       title = "Proportion of people per state UCLA dataset") 
+
+ACSstate <- statesicp_post %>% ggplot(aes(as.factor(value), pct, group=as.factor(type), linetype = as.factor(type))) +   geom_line() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), legend.position = "none") +
+  labs(x = "State", y = "Proportion",
+       title = "Proportion of people per state ACS dataset") 
+
+#show(UCLAstate/ACSstate)
+
+```
+
+
+# Model
+
+
+
+# Results
+
+
+# Discussion
+
+## First discussion point
+
+
+## Second discussion point
+
+
+## Third discussion point
+
+## Weaknesses and next steps
+
+
+\newpage
+
+\appendix
+
+# Appendix {-}
+
+
+# Additional details
+
+
+\newpage
+
+
+# References
+
+
